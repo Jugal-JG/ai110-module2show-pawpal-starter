@@ -32,6 +32,33 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Testing PawPal+
+
+Run the test suite with:
+
+```bash
+python -m pytest
+```
+
+The suite covers 10 tests across these behaviors:
+
+| Test | What it checks |
+|---|---|
+| Task completion | `mark_complete()` flips `completed` to True |
+| Task addition | Adding a task increases the pet's task count |
+| Sort by time | Tasks come back in HH:MM chronological order |
+| Daily recurrence | Completing a daily task creates one for tomorrow |
+| Weekly recurrence | Completing a weekly task creates one 7 days out |
+| One-time task | A `frequency="once"` task returns no next occurrence |
+| Conflict detection | Two tasks at the same time trigger a warning |
+| No false conflicts | Different start times produce zero warnings |
+| Time budget | `generate_plan()` never exceeds available minutes |
+| Filtering | `filter_tasks()` returns only incomplete tasks |
+
+**Confidence level: ⭐⭐⭐⭐** — happy paths and key edge cases are covered. Overlapping duration detection (e.g. 07:00 + 30 min overlaps with 07:15) is not yet tested and would be the next thing to add.
+
+---
+
 ## Smarter Scheduling
 
 The scheduler has been upgraded with the following features:
