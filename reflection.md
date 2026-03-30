@@ -21,13 +21,11 @@ Nothing's been changed yet since this is the initial skeleton. One thing I'm alr
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers two main constraints: the owner's available time for the day, and each task's priority level. High priority tasks always get scheduled first regardless of duration. Within the same priority level, shorter tasks get picked first to fit more into the day. Time was the obvious hard constraint — you can't schedule more than the day allows. Priority felt more important than duration alone because some things (like meds) just can't be skipped.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The conflict detector only flags tasks with the exact same `start_time` string — it doesn't check for overlapping durations. So a 30-minute task at 07:00 and a 10-minute task at 07:15 won't trigger a warning even though they'd overlap in real life. This is a conscious simplification: exact-time conflict detection is straightforward and catches the obvious cases. Handling overlapping durations would need proper time arithmetic and is something to tackle in a future iteration.
 
 ---
 

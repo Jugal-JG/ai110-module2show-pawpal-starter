@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List
+from datetime import date, timedelta
+from typing import List, Optional
 
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
@@ -9,13 +10,39 @@ class Task:
     """Represents a single pet care activity."""
     title: str
     duration_minutes: int
-    priority: str          # "low", "medium", "high"
+    priority: str            # "low", "medium", "high"
     category: str = ""
     completed: bool = False
+    start_time: str = ""     # "HH:MM" format, empty means unscheduled
+    frequency: str = "once"  # "once", "daily", "weekly"
+    due_date: str = ""       # ISO format YYYY-MM-DD
 
-    def mark_complete(self):
-        """Mark this task as done."""
+    def mark_complete(self) -> Optional["Task"]:
+        """Mark this task done. Returns the next occurrence if it's a recurring task."""
         self.completed = True
+        if self.frequency == "daily":
+            next_date = date.today() + timedelta(days=1)
+            return Task(
+                title=self.title,
+                duration_minutes=self.duration_minutes,
+                priority=self.priority,
+                category=self.category,
+                start_time=self.start_time,
+                frequency=self.frequency,
+                due_date=str(next_date),
+            )
+        if self.frequency == "weekly":
+            next_date = date.today() + timedelta(weeks=1)
+            return Task(
+                title=self.title,
+                duration_minutes=self.duration_minutes,
+                priority=self.priority,
+                category=self.category,
+                start_time=self.start_time,
+                frequency=self.frequency,
+                due_date=str(next_date),
+            )
+        return None
 
     def is_high_priority(self) -> bool:
         """Return True if this task is high priority."""
@@ -65,15 +92,44 @@ class Owner:
 
 @dataclass
 class Scheduler:
-    """The brain — picks and orders tasks that fit the owner's day."""
+    """The brain — picks, sorts, filters, and validates tasks for the owner's day."""
     owner: Owner
 
     def sort_by_priority(self, tasks: List[Task]) -> List[Task]:
         """Sort tasks high to low, shortest first within the same priority."""
         return sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t.priority, 99), t.duration_minutes))
 
+    def sort_by_time(self, tasks: List[Task]) -> List[Task]:
+        """Sort tasks by start_time in HH:MM format. Unscheduled tasks go to the end."""
+        return sorted(tasks, key=lambda t: t.start_time if t.start_time else "99:99")
+
+    def filter_tasks(self, tasks: List[Task], pet_name: str = "", only_incomplete: bool = False) -> List[Task]:
+        """Filter tasks by pet name and/or completion status."""
+        result = tasks
+        if pet_name:
+            pet = next((p for p in self.owner.pets if p.name == pet_name), None)
+            result = pet.get_all_tasks() if pet else []
+        if only_incomplete:
+            result = [t for t in result if not t.completed]
+        return result
+
+    def detect_conflicts(self, plan: List[Task]) -> List[str]:
+        """Return warning messages for any two tasks sharing the same start_time."""
+        warnings = []
+        seen = {}
+        for task in plan:
+            if not task.start_time:
+                continue
+            if task.start_time in seen:
+                warnings.append(
+                    f"Conflict at {task.start_time}: '{seen[task.start_time]}' and '{task.title}' overlap."
+                )
+            else:
+                seen[task.start_time] = task.title
+        return warnings
+
     def generate_plan(self) -> List[Task]:
-        """Return tasks that fit within the owner's available time."""
+        """Return tasks that fit within the owner's available time, sorted by priority."""
         all_tasks = self.owner.get_all_tasks()
         sorted_tasks = self.sort_by_priority(all_tasks)
         plan = []
@@ -88,11 +144,13 @@ class Scheduler:
         """Return a readable summary of the scheduled tasks."""
         if not plan:
             return "No tasks fit in the available time today."
-        lines = ["Today's Schedule", "-" * 32]
+        lines = ["Today's Schedule", "-" * 36]
         time_used = 0
         for task in plan:
             time_used += task.duration_minutes
-            lines.append(f"  [{task.priority.upper():6}] {task.title} — {task.duration_minutes} min")
-        lines.append("-" * 32)
+            time_tag = f" @ {task.start_time}" if task.start_time else ""
+            freq_tag = f" [{task.frequency}]" if task.frequency != "once" else ""
+            lines.append(f"  [{task.priority.upper():6}] {task.title}{time_tag}{freq_tag} — {task.duration_minutes} min")
+        lines.append("-" * 36)
         lines.append(f"Total: {time_used} / {self.owner.available_time_minutes} min available")
         return "\n".join(lines)
